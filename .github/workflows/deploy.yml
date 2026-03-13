@@ -1,0 +1,50 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+    # runs every time you push to main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      # pulls your code into the runner
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        # uses the service account key we stored in GitHub secrets
+
+    - name: Set up gcloud
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.PROJECT_ID }}
+
+    - name: Configure Docker for GCR
+      run: gcloud auth configure-docker --quiet
+
+    - name: Build and push image
+      run: |
+        docker buildx build \
+          --platform linux/amd64 \
+          -t gcr.io/${{ secrets.PROJECT_ID }}/modernization-demo-app:${{ github.sha }} \
+          --push .
+        # tags image with the git commit hash for traceability
+
+    - name: Get GKE credentials
+      run: |
+        gcloud container clusters get-credentials modernization-demo \
+          --zone us-central1-a
+
+    - name: Deploy to GKE
+      run: |
+        kubectl set image deployment/demo-app \
+          app=gcr.io/${{ secrets.PROJECT_ID }}/modernization-demo-app:${{ github.sha }}
+        # updates the running deployment with the new image
+        kubectl rollout status deployment/demo-app
+        # waits until the rollout completes successfully
