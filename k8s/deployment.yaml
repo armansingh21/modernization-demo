@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-app
+  template:
+    metadata:
+      labels:
+        app: demo-app
+    spec:
+      containers:
+      - name: app
+        image: gcr.io/modernization-demo/modernization-demo-app:v1
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-url-secret
+              key: url
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0
+        args:
+          - "--structured-logs"
+          - "--port=5432"
+          - "--credentials-file=/secrets/service_account.json"
+          # tells the proxy to use our service account key instead of default credentials
+          - "modernization-demo:us-central1:demo-postgres"
+        volumeMounts:
+        - name: sa-key
+          mountPath: /secrets
+          readOnly: true
+          # mounts the secret as a file inside the container
+        securityContext:
+          runAsNonRoot: true
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
+
+      volumes:
+      - name: sa-key
+        secret:
+          secretName: cloud-sql-sa-key
+          # pulls the service account key from the Kubernetes secret we just created

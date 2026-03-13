@@ -1,0 +1,12 @@
+# never commit these
+*.env
+.env
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+*.log
+
+# never commit service account keys
+sa-key.json
+*.json

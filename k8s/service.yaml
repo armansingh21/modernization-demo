@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-service
+spec:
+  selector:
+    app: demo-app
+    # routes traffic to pods with this label
+  ports:
+  - port: 80
+    targetPort: 8000
+    # external traffic hits port 80, forwards to container port 8000
+  type: LoadBalancer
+  # tells GKE to create a public IP address for this service
